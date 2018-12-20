@@ -11,11 +11,17 @@ LOG_ADDED=$( cat /var/log/restic/latest-backup.log | \
 zabbix_sender --config /etc/zabbix/zabbix_agentd.conf --key "restic.backup.added" --value "$LOG_ADDED"
 
 # Send Snapshot ID
-LOG_SNAPSHOT=$( grep 'snapshot' /var/log/restic/latest-backup.log | awk '{print $2}')
+LOG_SNAPSHOT=$( grep '^snapshot .* saved$' /var/log/restic/latest-backup.log | awk '{print $2}')
 zabbix_sender --config /etc/zabbix/zabbix_agentd.conf --key "restic.backup.snapshotid" --value "$LOG_SNAPSHOT"
 
 # Send Execution Time in Seconds
-LOG_DURATION=$( grep 'processed' /var/log/restic/latest-backup.log | \
-				awk '{print $NF}' | \
-				awk -F':' '{print (NF>2 ? $(NF-2)*3600 : 0) + (NF>1 ? $(NF-1)*60 : 0) + $(NF)}' )
-zabbix_sender --config /etc/zabbix/zabbix_agentd.conf --key "restic.backup.duration" --value "$LOG_DURATION"
+LOG_PROCESSED_D=$( grep '^processed' /var/log/restic/latest-backup.log | \
+				   awk '{print $NF}' | \
+				   awk -F':' '{print (NF>2 ? $(NF-2)*3600 : 0) + (NF>1 ? $(NF-1)*60 : 0) + $(NF)}' )
+zabbix_sender --config /etc/zabbix/zabbix_agentd.conf --key "restic.backup.duration" --value "$LOG_PROCESSED_D"
+
+# Send bytes processed
+LOG_PROCESSED_B=$( grep '^processed' /var/log/restic/latest-backup.log | \
+				   awk '{print $4,$5}' | \
+				   python3 -c 'import sys; import humanfriendly; print (humanfriendly.parse_size(sys.stdin.read(), binary=True))' )
+zabbix_sender --config /etc/zabbix/zabbix_agentd.conf --key "restic.backup.pbytes" --value "$LOG_PROCESSED_B"
